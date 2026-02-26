@@ -1,0 +1,3 @@
+#python dependencies
+boto3 #helps python talk to AWS services
+requests #allows python to grab data from the web
