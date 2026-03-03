@@ -40,7 +40,7 @@ def get_data(year):
         client.put_object(
             Bucket=bucket_name,
             Key=file_key,
-            Body=json.dumps(all_data)
+            Body="\n".join(json.dumps(record) for record in all_data)
         )
         print(f"Uploaded full datset for {year} to S3 at key {file_key}")
     except requests.exceptions.RequestException as e:
