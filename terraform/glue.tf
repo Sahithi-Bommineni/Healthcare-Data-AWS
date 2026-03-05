@@ -31,6 +31,22 @@ resource "aws_iam_role" "glue_role" {
     })
 }
 
+resource "aws_iam_role" "glue_job_role" {
+    name = "glue-job-role"
+    assume_role_policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+        {
+            Action = "sts:AssumeRole"
+            Effect = "Allow"
+            Principal = {
+                Service = "glue.amazonaws.com"
+            }
+        }]
+    })
+  
+}
+
 #to allow the GLUE to run the and create tables
 resource "aws_iam_role_policy_attachment" "glue_crawler_policy" {
   role       = aws_iam_role.glue_role.name
@@ -43,3 +59,30 @@ resource "aws_iam_role_policy_attachment" "s3_access_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
   
 }
+
+#creating glue job to transform the raw data and load it into silver table
+resource "aws_glue_job" "cms-raw-to-silver" {
+  name     = "cms-raw-to-silver-job"
+  role_arn = aws_iam_role.glue_job_role.arn
+  command {
+    name            = "glueetl"
+    script_location = "s3://cms-healthcare-data-bucket-2026/scripts/glue_job_script.py"
+    python_version  = "3"
+  }
+  default_arguments = {
+    "--job-language"        = "python"
+    "--TempDir"             = "${aws_s3_bucket.healthcare_cms_data_bucket.bucket}/temp/"
+    "--enable-metrics"      = "true"
+    "--job-bookmark-option" = "job-bookmark-enable"
+  }
+}
+
+#upload script to S3 bucket for the glue job
+resource "aws_s3_object" "glue_job_script" {
+    bucket = aws_s3_bucket.healthcare_cms_data_bucket.bucket
+    key    = "scripts/glue_job_script.py"
+    source = "../scripts/glue_job_script.py"
+
+    etag = filemd5("../scripts/glue_job_script.py") # This ensures the script is only re-uploaded if it changes
+}
+
